@@ -1,5 +1,15 @@
 # LNBTI-resource-Hub
 
+## Run with Docker
+
+Install and start Docker Desktop, then run this command from the project directory:
+
+```bash
+docker compose up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000). Docker installs the npm dependencies and builds the app into the image, so a separate `npm install` is not needed on the host. Stop the app with `Ctrl+C`; run `docker compose down` to remove its container.
+
 The proposed solution, LNBTI Help-Desk, is a centralized and responsive web-based system 
 for campus resource allocation and issue management. It will provide a common platform 
 through which students, lecturers, Heads of Departments, the Registrar, campus administrators, 

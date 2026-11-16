@@ -53,6 +53,37 @@
   }
 }
 
+@media (min-width: 1051px) {
+  .registerPage :global(.form-panel) {
+    padding-top: 36px;
+    padding-bottom: 14px;
+  }
+
+  .registerPage :global(.form-heading) {
+    margin-bottom: 18px;
+  }
+
+  .registerPage :global(.access-divider) {
+    margin: 16px 0 7px;
+  }
+
+  .registerPage :global(.support-card) {
+    padding: 9px;
+  }
+
+  .registerPage :global(.form-footer) {
+    padding-top: 16px;
+  }
+
+  .registerForm {
+    gap: 13px;
+  }
+
+  .accountPrompt {
+    margin-top: 14px;
+  }
+}
+
 @media (max-width: 820px) {
   .registerPage :global(.brand-message h1) {
     max-width: 620px;

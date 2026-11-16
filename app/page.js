@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import styles from "./login.module.css";
 
 function ShieldIcon() {
   return (
@@ -41,7 +42,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <main className="login-shell">
+    <main className={`login-shell ${styles.loginPage}`}>
       <section className="brand-panel" aria-label="About LNBTI CampusFlow">
         <div className="brand-lines" aria-hidden="true" />
         <div className="brand-orbit brand-orbit-one" aria-hidden="true" />

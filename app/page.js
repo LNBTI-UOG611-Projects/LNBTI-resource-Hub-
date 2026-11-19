@@ -195,7 +195,7 @@ export default function SignInPage() {
           </form>
 
           <p className={styles.accountPrompt}>
-            New to CampusFlow? <Link href="/register">Create an account</Link>
+            Don&apos;t have an account? <Link href="/register">Register here</Link>
           </p>
 
           <div className="access-divider">

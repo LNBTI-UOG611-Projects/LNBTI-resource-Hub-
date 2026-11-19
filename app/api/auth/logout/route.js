@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { sameOriginFailure } from "../../../../lib/auth/authorization.js";
 import { revokeCurrentSession } from "../../../../lib/auth/session.js";
 
-export async function POST() {
+export async function POST(request) {
+  const originError = sameOriginFailure(request);
+  if (originError) return originError;
+
   try {
     await revokeCurrentSession();
     return NextResponse.json({ message: "Signed out." });

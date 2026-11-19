@@ -5,6 +5,8 @@ import { useState } from "react";
 import { PUBLIC_REGISTRATION_ROLES } from "../../lib/auth/roles.js";
 import styles from "./register.module.css";
 
+const phonePattern = /^\+?[\d\s().-]{7,30}$/;
+
 function ShieldIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -56,16 +58,30 @@ export default function RegisterPage() {
 
     try {
       const formData = new FormData(form);
+      const phone = formData.get("phone");
+      if (typeof phone !== "string" || !phonePattern.test(phone.trim())) {
+        setFormError("Enter a valid phone number.");
+        return;
+      }
+
+      const password = formData.get("password");
+      const confirmPassword = formData.get("confirmPassword");
+      if (password !== confirmPassword) {
+        setFormError("Passwords do not match.");
+        return;
+      }
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: formData.get("fullName"),
           email: formData.get("email"),
-          phone: formData.get("phone"),
-          password: formData.get("password"),
-          confirmPassword: formData.get("confirmPassword"),
+          phone: phone.trim(),
+          password,
+          confirmPassword,
           role: formData.get("role"),
+          termsAccepted: formData.get("terms") === "on",
         }),
       });
       const result = await response.json();
@@ -153,6 +169,7 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="Enter your full name"
                 autoComplete="name"
+                maxLength={150}
                 required
               />
             </div>
@@ -165,6 +182,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="name@lnbti.edu.lk"
                 autoComplete="email"
+                maxLength={255}
                 required
               />
             </div>
@@ -177,6 +195,7 @@ export default function RegisterPage() {
                 type="tel"
                 placeholder="Enter your phone number"
                 autoComplete="tel"
+                maxLength={30}
                 required
               />
             </div>
@@ -200,6 +219,8 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
                   autoComplete="new-password"
+                  minLength={10}
+                  maxLength={72}
                   required
                 />
                 <button
@@ -223,6 +244,8 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your password"
                   autoComplete="new-password"
+                  minLength={10}
+                  maxLength={72}
                   required
                 />
                 <button
@@ -242,7 +265,7 @@ export default function RegisterPage() {
             </div>
 
             <label className="remember-option" htmlFor="terms">
-              <input id="terms" name="terms" type="checkbox" />
+              <input id="terms" name="terms" type="checkbox" required />
               <span className="custom-check" aria-hidden="true" />
               <span>I agree to the Terms and Conditions</span>
             </label>
@@ -260,7 +283,7 @@ export default function RegisterPage() {
           </form>
 
           <p className={styles.accountPrompt}>
-            Already have an account? <Link href="/">Sign in</Link>
+            <Link href="/">Back to Login</Link>
           </p>
 
           <div className="access-divider">

@@ -22,6 +22,13 @@ enum UserStatus {
   @@map("user_status")
 }
 
+enum RoleApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  @@map("role_approval_status")
+}
+
 enum RoomStatus {
   AVAILABLE
   UNAVAILABLE
@@ -140,6 +147,7 @@ model Role {
   description String?    @db.VarChar(255)
   createdAt   DateTime   @default(now()) @db.Timestamptz(6) @map("created_at")
   userRoles   UserRole[]
+  approvalRequests RoleApprovalRequest[] @relation("ApprovalRequestedRole")
 
   @@map("roles")
 }
@@ -170,11 +178,13 @@ model User {
   loanReturnHandlers     ResourceLoan[] @relation("LoanReturnHandler")
   reportedIssues         Issue[] @relation("IssueReporter")
   issueAssignments       IssueAssignment[] @relation("IssueAssigner")
-  assignedIssues         IssueAssignment[] @relation("IssueManager")
+  facilityOfficerAssignments IssueAssignment[] @relation("FacilityOfficer")
   issueUpdates           IssueUpdate[] @relation("IssueUpdateAuthor")
   notifications          Notification[]
   activityLogs           ActivityLog[]
   authSessions           AuthSession[]
+  roleApprovalRequest    RoleApprovalRequest? @relation("ApprovalSubject")
+  reviewedRoleApprovals  RoleApprovalRequest[] @relation("ApprovalReviewer")
 
   @@index([status])
   @@map("users")
@@ -207,6 +217,25 @@ model UserRole {
   @@id([userId, roleId])
   @@index([roleId])
   @@map("user_roles")
+}
+
+model RoleApprovalRequest {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt             @unique @map("user_id")
+  requestedRoleId BigInt             @map("requested_role_id")
+  status          RoleApprovalStatus @default(PENDING)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6) @map("created_at")
+  reviewedAt      DateTime?          @db.Timestamptz(6) @map("reviewed_at")
+  reviewerId      BigInt?            @map("reviewer_id")
+
+  user          User  @relation("ApprovalSubject", fields: [userId], references: [id], onDelete: Cascade)
+  requestedRole Role  @relation("ApprovalRequestedRole", fields: [requestedRoleId], references: [id], onDelete: Restrict)
+  reviewer      User? @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([requestedRoleId])
+  @@index([reviewerId])
+  @@map("role_approval_requests")
 }
 
 // 4. buildings
@@ -601,19 +630,19 @@ model Issue {
 model IssueAssignment {
   id           BigInt   @id @default(autoincrement())
   issueId      BigInt   @map("issue_id")
-  issueManagerId BigInt  @map("issue_manager_id")
+  facilityOfficerId BigInt @map("issue_manager_id")
   assignedById BigInt   @map("assigned_by_id")
   assignedAt   DateTime @default(now()) @db.Timestamptz(6) @map("assigned_at")
   endedAt      DateTime? @db.Timestamptz(6) @map("ended_at")
   note         String?  @db.Text
 
   issue        Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  issueManager User  @relation("IssueManager", fields: [issueManagerId], references: [id], onDelete: Restrict)
+  facilityOfficer User @relation("FacilityOfficer", fields: [facilityOfficerId], references: [id], onDelete: Restrict)
   assigner     User  @relation("IssueAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
   updates      IssueUpdate[]
 
   @@index([issueId, assignedAt])
-  @@index([issueManagerId, endedAt])
+  @@index([facilityOfficerId, endedAt])
   @@map("issue_assignments")
 }
 

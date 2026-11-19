@@ -8,3 +8,29 @@
     margin-bottom: 24px;
   }
 }
+
+.formMessage {
+  margin: 0;
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.accountPrompt {
+  margin: 18px 0 0;
+  color: #77727d;
+  font-size: 11px;
+  text-align: center;
+}
+
+.accountPrompt a {
+  color: #704b91;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.accountPrompt a:hover {
+  color: #cf514c;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

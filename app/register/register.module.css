@@ -25,6 +25,39 @@
   gap: 16px;
 }
 
+.registerPage :global(.field-group select) {
+  width: 100%;
+  height: 50px;
+  padding: 0 15px;
+  border: 1px solid #e4e0e8;
+  border-radius: 7px;
+  outline: none;
+  background: #fff;
+  color: #292532;
+  font: inherit;
+  font-size: 13px;
+}
+
+.registerPage :global(.field-group select:focus) {
+  border-color: #9c79bc;
+  box-shadow: 0 0 0 3px rgba(75, 35, 122, 0.09);
+}
+
+.formError,
+.formSuccess {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.formError {
+  color: #b42318;
+}
+
+.formSuccess {
+  color: #267647;
+}
+
 .accountPrompt {
   margin: 20px 0 0;
   color: #77727d;
@@ -77,6 +110,10 @@
 
   .registerForm {
     gap: 13px;
+  }
+
+  .registerPage :global(.field-group select) {
+    height: 44px;
   }
 
   .accountPrompt {

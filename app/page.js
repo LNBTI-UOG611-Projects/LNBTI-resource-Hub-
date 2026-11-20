@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./login.module.css";
 
 function ShieldIcon() {
@@ -40,7 +41,39 @@ function EyeIcon({ visible }) {
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const router = useRouter();
 
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setAuthError("");
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Sign in failed.");
+      }
+
+      router.push(result.redirectTo || "/dashboard");
+    } catch (error) {
+      setAuthError(error.message || "Sign in is temporarily unavailable.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
   return (
     <main className={`login-shell ${styles.loginPage}`}>
       <section className="brand-panel" aria-label="About LNBTI CampusFlow">

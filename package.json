@@ -8,8 +8,16 @@
     "start": "next start"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "bcryptjs": "3.0.2",
+    "dotenv": "18.0.10",
     "next": "latest",
+    "pg": "8.23.1",
     "react": "latest",
     "react-dom": "latest"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
   }
 }

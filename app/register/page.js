@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PUBLIC_REGISTRATION_ROLES } from "../../lib/auth/roles.js";
 import styles from "./register.module.css";
+
+const phonePattern = /^\+?[\d\s().-]{7,30}$/;
 
 function ShieldIcon() {
   return (
@@ -42,6 +45,55 @@ function EyeIcon({ visible }) {
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setIsSubmitting(true);
+    setFormError("");
+    setSuccessMessage("");
+
+    try {
+      const formData = new FormData(form);
+      const phone = formData.get("phone");
+      if (typeof phone !== "string" || !phonePattern.test(phone.trim())) {
+        setFormError("Enter a valid phone number.");
+        return;
+      }
+
+      const password = formData.get("password");
+      const confirmPassword = formData.get("confirmPassword");
+      if (password !== confirmPassword) {
+        setFormError("Passwords do not match.");
+        return;
+      }
+
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: formData.get("fullName"),
+          email: formData.get("email"),
+          phone: phone.trim(),
+          password,
+          confirmPassword,
+          role: formData.get("role"),
+          termsAccepted: formData.get("terms") === "on",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Registration failed.");
+      setSuccessMessage(result.message || "Registration successful.");
+      form.reset();
+    } catch (error) {
+      setFormError(error.message || "Registration is temporarily unavailable.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <main className={`login-shell ${styles.registerPage}`}>
@@ -107,7 +159,7 @@ export default function RegisterPage() {
 
           <form
             className={styles.registerForm}
-            onSubmit={(event) => event.preventDefault()}
+            onSubmit={handleSubmit}
           >
             <div className="field-group">
               <label htmlFor="full-name">Full Name</label>
@@ -117,6 +169,8 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="Enter your full name"
                 autoComplete="name"
+                maxLength={150}
+                required
               />
             </div>
 
@@ -128,7 +182,32 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="name@lnbti.edu.lk"
                 autoComplete="email"
+                maxLength={255}
+                required
               />
+            </div>
+
+            <div className="field-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                placeholder="Enter your phone number"
+                autoComplete="tel"
+                maxLength={30}
+                required
+              />
+            </div>
+
+            <div className="field-group">
+              <label htmlFor="role">Register as</label>
+              <select id="role" name="role" defaultValue="" required>
+                <option value="" disabled>Select your role</option>
+                {PUBLIC_REGISTRATION_ROLES.map((role) => (
+                  <option key={role} value={role}>{role.replaceAll("_", " ")}</option>
+                ))}
+              </select>
             </div>
 
             <div className="field-group">
@@ -140,6 +219,9 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
                   autoComplete="new-password"
+                  minLength={10}
+                  maxLength={72}
+                  required
                 />
                 <button
                   className="visibility-toggle"
@@ -162,6 +244,9 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your password"
                   autoComplete="new-password"
+                  minLength={10}
+                  maxLength={72}
+                  required
                 />
                 <button
                   className="visibility-toggle"
@@ -180,19 +265,25 @@ export default function RegisterPage() {
             </div>
 
             <label className="remember-option" htmlFor="terms">
-              <input id="terms" name="terms" type="checkbox" />
+              <input id="terms" name="terms" type="checkbox" required />
               <span className="custom-check" aria-hidden="true" />
               <span>I agree to the Terms and Conditions</span>
             </label>
 
-            <button className="signin-button" type="submit">
-              <span>Create Account</span>
+            {(formError || successMessage) && (
+              <p className={formError ? styles.formError : styles.formSuccess} role={formError ? "alert" : "status"}>
+                {formError || successMessage}
+              </p>
+            )}
+
+            <button className="signin-button" type="submit" disabled={isSubmitting}>
+              <span>{isSubmitting ? "Creating account..." : "Create Account"}</span>
               <ArrowIcon />
             </button>
           </form>
 
           <p className={styles.accountPrompt}>
-            Already have an account? <Link href="/">Sign in</Link>
+            <Link href="/">Back to Login</Link>
           </p>
 
           <div className="access-divider">

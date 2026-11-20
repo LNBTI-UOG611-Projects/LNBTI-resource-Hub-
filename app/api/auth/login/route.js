@@ -1,3 +1,4 @@
+
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { sameOriginFailure } from "../../../../lib/auth/authorization.js";
@@ -25,12 +26,14 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 400 });
   }
+
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 400 });
   }
 
   const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
+
   if (!emailPattern.test(email) || email.length > 255 || !password || Buffer.byteLength(password, "utf8") > 72) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 400 });
   }

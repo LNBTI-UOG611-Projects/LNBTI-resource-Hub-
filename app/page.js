@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./login.module.css";
@@ -44,6 +45,33 @@ export default function SignInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState("");
   const router = useRouter();
+
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setAuthError("");
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Sign in failed.");
+      router.push("/dashboard");
+    } catch (error) {
+      setAuthError(error.message || "Sign in is temporarily unavailable.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -136,7 +164,7 @@ export default function SignInPage() {
             <p>Enter your account details to access your campus workspace.</p>
           </div>
 
-          <form className="signin-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="signin-form" onSubmit={handleSubmit}>
             <div className="field-group">
               <label htmlFor="email">Email address</label>
               <input
@@ -145,6 +173,7 @@ export default function SignInPage() {
                 type="email"
                 placeholder="name@lnbti.edu.lk"
                 autoComplete="email"
+                required
               />
             </div>
 
@@ -162,6 +191,7 @@ export default function SignInPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   autoComplete="current-password"
+                  required
                 />
                 <button
                   className="visibility-toggle"
@@ -187,11 +217,17 @@ export default function SignInPage() {
               </span>
             </div>
 
-            <button className="signin-button" type="submit">
-              <span>Sign in</span>
+            {authError && <p className={styles.formMessage} role="alert">{authError}</p>}
+
+            <button className="signin-button" type="submit" disabled={isSubmitting}>
+              <span>{isSubmitting ? "Signing in..." : "Sign in"}</span>
               <ArrowIcon />
             </button>
           </form>
+
+          <p className={styles.accountPrompt}>
+            Don&apos;t have an account? <Link href="/register">Register here</Link>
+          </p>
 
           <div className="access-divider">
             <span />

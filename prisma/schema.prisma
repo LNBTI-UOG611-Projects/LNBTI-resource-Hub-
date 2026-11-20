@@ -1,0 +1,703 @@
+// LNBTI CampusFlow — Prisma schema for PostgreSQL
+// Generated from the supplied specification.
+// Run: npx prisma format
+//      npx prisma migrate dev --name init
+//
+// IMPORTANT: PostgreSQL exclusion constraints and partial unique indexes are not
+// expressible in Prisma schema. Add the custom SQL shown after this schema to a
+// migration (see the notes in the assistant response).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  @@map("user_status")
+}
+
+enum RoleApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  @@map("role_approval_status")
+}
+
+enum RoomStatus {
+  AVAILABLE
+  UNAVAILABLE
+  MAINTENANCE
+  RETIRED
+  @@map("room_status")
+}
+
+enum TimetableStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  @@map("timetable_status")
+}
+
+enum UploadStatus {
+  UPLOADED
+  PROCESSING
+  VALIDATED
+  FAILED
+  COMPLETED
+  @@map("upload_status")
+}
+
+enum ImportRowStatus {
+  PENDING
+  VALID
+  INVALID
+  IMPORTED
+  @@map("import_row_status")
+}
+
+enum RoomRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ALLOCATED
+  CANCELLED
+  COMPLETED
+  @@map("room_request_status")
+}
+
+enum AllocationStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  @@map("allocation_status")
+}
+
+enum ResourceCondition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+  @@map("resource_condition")
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  RESERVED
+  BORROWED
+  MAINTENANCE
+  LOST
+  RETIRED
+  @@map("resource_status")
+}
+
+enum ResourceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  @@map("resource_request_status")
+}
+
+enum LoanStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  LOST
+  @@map("loan_status")
+}
+
+enum IssueStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+  @@map("issue_status")
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+  @@map("issue_priority")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  @@map("notification_type")
+}
+
+// 1. roles
+model Role {
+  id          BigInt     @id @default(autoincrement())
+  name        String     @unique @db.VarChar(50)
+  description String?    @db.VarChar(255)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6) @map("created_at")
+  userRoles   UserRole[]
+  approvalRequests RoleApprovalRequest[] @relation("ApprovalRequestedRole")
+
+  @@map("roles")
+}
+
+// 2. users
+model User {
+  id             BigInt      @id @default(autoincrement())
+  fullName       String      @db.VarChar(150) @map("full_name")
+  email          String      @unique @db.VarChar(255)
+  phone          String?     @db.VarChar(30)
+  passwordHash   String      @db.VarChar(255) @map("password_hash")
+  status         UserStatus  @default(ACTIVE)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  userRoles              UserRole[]
+  batchMemberships       UserBatchMembership[]
+  timetableUploads       TimetableUpload[] @relation("Uploader")
+  lectures               Lecture[] @relation("Lecturer")
+  roomRequests           RoomRequest[] @relation("RoomRequester")
+  roomRequestReviews     RoomRequest[] @relation("RoomReviewer")
+  roomAllocations        RoomAllocation[] @relation("AllocationFinalizer")
+  roomRequestHistory     RoomRequestHistory[] @relation("RoomHistoryActor")
+  resourceRequests       ResourceRequest[] @relation("ResourceRequester")
+  resourceRequestReviews ResourceRequest[] @relation("ResourceReviewer")
+  resourceLoans          ResourceLoan[] @relation("LoanBorrower")
+  loanIssuers            ResourceLoan[] @relation("LoanIssuer")
+  loanReturnHandlers     ResourceLoan[] @relation("LoanReturnHandler")
+  reportedIssues         Issue[] @relation("IssueReporter")
+  issueAssignments       IssueAssignment[] @relation("IssueAssigner")
+  facilityOfficerAssignments IssueAssignment[] @relation("FacilityOfficer")
+  issueUpdates           IssueUpdate[] @relation("IssueUpdateAuthor")
+  notifications          Notification[]
+  activityLogs           ActivityLog[]
+  authSessions           AuthSession[]
+  roleApprovalRequest    RoleApprovalRequest? @relation("ApprovalSubject")
+  reviewedRoleApprovals  RoleApprovalRequest[] @relation("ApprovalReviewer")
+
+  @@index([status])
+  @@map("users")
+}
+
+model AuthSession {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique @db.Char(64) @map("token_hash")
+  createdAt DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  expiresAt DateTime  @db.Timestamptz(6) @map("expires_at")
+  revokedAt DateTime? @db.Timestamptz(6) @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+// 3. user_roles
+model UserRole {
+  userId     BigInt   @map("user_id")
+  roleId     BigInt   @map("role_id")
+  assignedAt DateTime @default(now()) @db.Timestamptz(6) @map("assigned_at")
+  assignedBy BigInt?  @map("assigned_by")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RoleApprovalRequest {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt             @unique @map("user_id")
+  requestedRoleId BigInt             @map("requested_role_id")
+  status          RoleApprovalStatus @default(PENDING)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6) @map("created_at")
+  reviewedAt      DateTime?          @db.Timestamptz(6) @map("reviewed_at")
+  reviewerId      BigInt?            @map("reviewer_id")
+
+  user          User  @relation("ApprovalSubject", fields: [userId], references: [id], onDelete: Cascade)
+  requestedRole Role  @relation("ApprovalRequestedRole", fields: [requestedRoleId], references: [id], onDelete: Restrict)
+  reviewer      User? @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([requestedRoleId])
+  @@index([reviewerId])
+  @@map("role_approval_requests")
+}
+
+// 4. buildings
+model Building {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  code      String   @unique @db.VarChar(20)
+  address   String?  @db.VarChar(255)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  batches   Batch[]
+  rooms     Room[]
+  resources Resource[]
+  roomRequests RoomRequest[]
+  issues    Issue[]
+
+  @@map("buildings")
+}
+
+// 5. batches
+model Batch {
+  id         BigInt   @id @default(autoincrement())
+  buildingId BigInt   @map("building_id")
+  name       String   @db.VarChar(100)
+  code       String   @db.VarChar(30)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  memberships UserBatchMembership[]
+  timetables Timetable[]
+
+  @@unique([buildingId, code])
+  @@index([buildingId])
+  @@map("batches")
+}
+
+// 6. rooms
+model Room {
+  id          BigInt     @id @default(autoincrement())
+  buildingId  BigInt     @map("building_id")
+  name        String     @db.VarChar(100)
+  code        String     @db.VarChar(30)
+  capacity    Int
+  status      RoomStatus @default(AVAILABLE)
+  description String?    @db.VarChar(500)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  building       Building @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  lectures       Lecture[]
+  requestedFor   RoomRequest[] @relation("RequestedRoom")
+  allocations    RoomAllocation[]
+  issues         Issue[]
+
+  @@unique([buildingId, code])
+  @@index([buildingId, status])
+  @@map("rooms")
+}
+
+// 7. user_batch_memberships
+model UserBatchMembership {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  batchId   BigInt   @map("batch_id")
+  joinedAt  DateTime @default(now()) @db.Timestamptz(6) @map("joined_at")
+  leftAt    DateTime? @db.Timestamptz(6) @map("left_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, batchId])
+  @@index([batchId])
+  @@map("user_batch_memberships")
+}
+
+// 8. academic_terms
+model AcademicTerm {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  code      String   @unique @db.VarChar(30)
+  startsOn  DateTime @db.Date @map("starts_on")
+  endsOn    DateTime @db.Date @map("ends_on")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  timetables Timetable[]
+  lectures   Lecture[]
+
+  @@index([startsOn, endsOn])
+  @@map("academic_terms")
+}
+
+// 9. timetables
+model Timetable {
+  id             BigInt   @id @default(autoincrement())
+  batchId        BigInt   @map("batch_id")
+  academicTermId BigInt   @map("academic_term_id")
+  name           String   @db.VarChar(150)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  batch          Batch        @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Restrict)
+  uploads        TimetableUpload[]
+  versions       TimetableVersion[]
+
+  @@unique([batchId, academicTermId])
+  @@index([academicTermId])
+  @@map("timetables")
+}
+
+// 10. timetable_uploads
+model TimetableUpload {
+  id               BigInt       @id @default(autoincrement())
+  timetableId      BigInt       @map("timetable_id")
+  uploadedById     BigInt       @map("uploaded_by_id")
+  originalFilename String       @db.VarChar(255) @map("original_filename")
+  storageKey       String       @db.VarChar(500) @map("storage_key")
+  fileSizeBytes    BigInt?      @map("file_size_bytes")
+  status           UploadStatus @default(UPLOADED)
+  errorSummary     String?      @db.Text @map("error_summary")
+  uploadedAt       DateTime     @default(now()) @db.Timestamptz(6) @map("uploaded_at")
+  processedAt      DateTime?    @db.Timestamptz(6) @map("processed_at")
+
+  timetable        Timetable @relation(fields: [timetableId], references: [id], onDelete: Restrict)
+  uploader         User      @relation("Uploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  rows             TimetableUploadRow[]
+  versions         TimetableVersion[]
+
+  @@index([timetableId, uploadedAt])
+  @@index([uploadedById])
+  @@map("timetable_uploads")
+}
+
+// 11. timetable_upload_rows
+model TimetableUploadRow {
+  id             BigInt          @id @default(autoincrement())
+  uploadId       BigInt          @map("upload_id")
+  rowNumber      Int             @map("row_number")
+  rawData        Json            @map("raw_data")
+  status         ImportRowStatus @default(PENDING)
+  validationErrors Json?          @map("validation_errors")
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  upload         TimetableUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@unique([uploadId, rowNumber])
+  @@index([uploadId, status])
+  @@map("timetable_upload_rows")
+}
+
+// 12. timetable_versions
+model TimetableVersion {
+  id           BigInt           @id @default(autoincrement())
+  timetableId  BigInt           @map("timetable_id")
+  uploadId     BigInt?          @map("upload_id")
+  versionNo    Int              @map("version_no")
+  status       TimetableStatus  @default(DRAFT)
+  publishedAt  DateTime?        @db.Timestamptz(6) @map("published_at")
+  publishedBy  BigInt?          @map("published_by")
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  timetable    Timetable       @relation(fields: [timetableId], references: [id], onDelete: Restrict)
+  upload       TimetableUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  lectures     Lecture[]
+
+  @@unique([timetableId, versionNo])
+  @@index([timetableId, status])
+  @@map("timetable_versions")
+}
+
+// 13. lectures
+model Lecture {
+  id                 BigInt   @id @default(autoincrement())
+  timetableVersionId BigInt   @map("timetable_version_id")
+  roomId             BigInt   @map("room_id")
+  academicTermId     BigInt   @map("academic_term_id")
+  lecturerId         BigInt?  @map("lecturer_id")
+  subject            String   @db.VarChar(150)
+  weekday            Int
+  startTime          DateTime @db.Time(6) @map("start_time")
+  endTime            DateTime @db.Time(6) @map("end_time")
+  createdAt          DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  timetableVersion   TimetableVersion @relation(fields: [timetableVersionId], references: [id], onDelete: Cascade)
+  room               Room             @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  academicTerm       AcademicTerm      @relation(fields: [academicTermId], references: [id], onDelete: Restrict)
+  lecturer           User?            @relation("Lecturer", fields: [lecturerId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, academicTermId, weekday, startTime, endTime])
+  @@index([timetableVersionId])
+  @@index([lecturerId, weekday])
+  @@map("lectures")
+}
+
+// 14. room_requests
+model RoomRequest {
+  id             BigInt            @id @default(autoincrement())
+  requesterId    BigInt            @map("requester_id")
+  buildingId     BigInt            @map("building_id")
+  requestedRoomId BigInt?          @map("requested_room_id")
+  requestDate    DateTime          @db.Date @map("request_date")
+  startTime      DateTime          @db.Time(6) @map("start_time")
+  endTime        DateTime          @db.Time(6) @map("end_time")
+  purpose        String            @db.Text
+  participants   Int
+  status         RoomRequestStatus @default(PENDING)
+  reviewedById   BigInt?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @db.Timestamptz(6) @map("reviewed_at")
+  reviewNote     String?           @db.Text @map("review_note")
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  requester      User       @relation("RoomRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  building       Building   @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  requestedRoom  Room?      @relation("RequestedRoom", fields: [requestedRoomId], references: [id], onDelete: Restrict)
+  reviewer       User?      @relation("RoomReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  allocations    RoomAllocation[]
+  history        RoomRequestHistory[]
+
+  @@index([requesterId, status])
+  @@index([buildingId, requestDate, status])
+  @@map("room_requests")
+}
+
+// 15. room_allocations
+model RoomAllocation {
+  id             BigInt           @id @default(autoincrement())
+  roomRequestId   BigInt           @map("room_request_id")
+  roomId          BigInt           @map("room_id")
+  finalizedById   BigInt           @map("finalized_by_id")
+  allocationDate  DateTime         @db.Date @map("allocation_date")
+  startTime       DateTime         @db.Time(6) @map("start_time")
+  endTime         DateTime         @db.Time(6) @map("end_time")
+  status          AllocationStatus @default(CONFIRMED)
+  finalizedAt     DateTime         @default(now()) @db.Timestamptz(6) @map("finalized_at")
+  notes           String?          @db.Text
+
+  roomRequest     RoomRequest @relation(fields: [roomRequestId], references: [id], onDelete: Restrict)
+  room            Room        @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  finalizer       User        @relation("AllocationFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
+
+  @@index([roomId, allocationDate, status])
+  @@index([roomRequestId])
+  @@map("room_allocations")
+}
+
+// 16. room_request_history
+model RoomRequestHistory {
+  id          BigInt   @id @default(autoincrement())
+  roomRequestId BigInt @map("room_request_id")
+  actorId     BigInt?  @map("actor_id")
+  oldStatus   String?  @db.VarChar(30) @map("old_status")
+  newStatus   String   @db.VarChar(30) @map("new_status")
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  roomRequest RoomRequest @relation(fields: [roomRequestId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("RoomHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([roomRequestId, createdAt])
+  @@map("room_request_history")
+}
+
+// 17. resource_categories
+model ResourceCategory {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  resources   Resource[]
+
+  @@map("resource_categories")
+}
+
+// 18. resources (each row is one physical item)
+model Resource {
+  id           BigInt            @id @default(autoincrement())
+  categoryId   BigInt            @map("category_id")
+  buildingId   BigInt?           @map("building_id")
+  assetTag     String            @unique @db.VarChar(100) @map("asset_tag")
+  name         String            @db.VarChar(150)
+  serialNumber String?           @unique @db.VarChar(150) @map("serial_number")
+  condition    ResourceCondition @default(GOOD)
+  status       ResourceStatus    @default(AVAILABLE)
+  locationNote String?           @db.VarChar(255) @map("location_note")
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  category     ResourceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  building     Building?        @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  requestItems ResourceRequestItem[]
+  loans        ResourceLoan[]
+
+  @@index([categoryId, status])
+  @@index([buildingId, status])
+  @@map("resources")
+}
+
+// 19. resource_requests
+model ResourceRequest {
+  id           BigInt                @id @default(autoincrement())
+  requesterId  BigInt                @map("requester_id")
+  requestedFrom DateTime             @db.Timestamptz(6) @map("requested_from")
+  dueAt        DateTime              @db.Timestamptz(6) @map("due_at")
+  purpose      String                @db.Text
+  status       ResourceRequestStatus @default(PENDING)
+  reviewedById BigInt?               @map("reviewed_by_id")
+  reviewedAt   DateTime?             @db.Timestamptz(6) @map("reviewed_at")
+  reviewNote   String?               @db.Text @map("review_note")
+  createdAt    DateTime              @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  requester    User @relation("ResourceRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  reviewer     User? @relation("ResourceReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  items        ResourceRequestItem[]
+
+  @@index([requesterId, status])
+  @@index([requestedFrom, dueAt])
+  @@map("resource_requests")
+}
+
+// 20. resource_request_items
+model ResourceRequestItem {
+  id                BigInt  @id @default(autoincrement())
+  resourceRequestId BigInt  @map("resource_request_id")
+  resourceId        BigInt  @map("resource_id")
+  assignedAt        DateTime? @db.Timestamptz(6) @map("assigned_at")
+
+  resourceRequest   ResourceRequest @relation(fields: [resourceRequestId], references: [id], onDelete: Cascade)
+  resource          Resource        @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  loans             ResourceLoan[]
+
+  @@unique([resourceRequestId, resourceId])
+  @@index([resourceId])
+  @@map("resource_request_items")
+}
+
+// 21. resource_loans
+model ResourceLoan {
+  id                   BigInt     @id @default(autoincrement())
+  resourceRequestItemId BigInt     @map("resource_request_item_id")
+  resourceId           BigInt     @map("resource_id")
+  borrowerId           BigInt     @map("borrower_id")
+  issuedById           BigInt     @map("issued_by_id")
+  returnedToId         BigInt?    @map("returned_to_id")
+  issuedAt             DateTime   @default(now()) @db.Timestamptz(6) @map("issued_at")
+  dueAt                DateTime   @db.Timestamptz(6) @map("due_at")
+  returnedAt           DateTime?  @db.Timestamptz(6) @map("returned_at")
+  conditionAtReturn    ResourceCondition? @map("condition_at_return")
+  status               LoanStatus @default(ACTIVE)
+
+  requestItem          ResourceRequestItem @relation(fields: [resourceRequestItemId], references: [id], onDelete: Restrict)
+  resource             Resource            @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  borrower             User                @relation("LoanBorrower", fields: [borrowerId], references: [id], onDelete: Restrict)
+  issuer               User                @relation("LoanIssuer", fields: [issuedById], references: [id], onDelete: Restrict)
+  returnHandler        User?               @relation("LoanReturnHandler", fields: [returnedToId], references: [id], onDelete: SetNull)
+
+  @@index([borrowerId, status])
+  @@index([resourceId, status])
+  @@index([dueAt, status])
+  @@map("resource_loans")
+}
+
+// 22. issues
+model Issue {
+  id           BigInt        @id @default(autoincrement())
+  reporterId   BigInt        @map("reporter_id")
+  buildingId   BigInt        @map("building_id")
+  roomId       BigInt?       @map("room_id")
+  title        String        @db.VarChar(200)
+  description  String        @db.Text
+  priority     IssuePriority @default(MEDIUM)
+  status       IssueStatus   @default(OPEN)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(6) @map("updated_at")
+  resolvedAt   DateTime?     @db.Timestamptz(6) @map("resolved_at")
+  closedAt     DateTime?     @db.Timestamptz(6) @map("closed_at")
+
+  reporter     User       @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  building     Building   @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  room         Room?      @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  assignments  IssueAssignment[]
+  updates      IssueUpdate[]
+
+  @@index([buildingId, status, priority])
+  @@index([reporterId, createdAt])
+  @@map("issues")
+}
+
+// 23. issue_assignments
+model IssueAssignment {
+  id           BigInt   @id @default(autoincrement())
+  issueId      BigInt   @map("issue_id")
+  facilityOfficerId BigInt @map("issue_manager_id")
+  assignedById BigInt   @map("assigned_by_id")
+  assignedAt   DateTime @default(now()) @db.Timestamptz(6) @map("assigned_at")
+  endedAt      DateTime? @db.Timestamptz(6) @map("ended_at")
+  note         String?  @db.Text
+
+  issue        Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  facilityOfficer User @relation("FacilityOfficer", fields: [facilityOfficerId], references: [id], onDelete: Restrict)
+  assigner     User  @relation("IssueAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
+  updates      IssueUpdate[]
+
+  @@index([issueId, assignedAt])
+  @@index([facilityOfficerId, endedAt])
+  @@map("issue_assignments")
+}
+
+// 24. issue_updates
+model IssueUpdate {
+  id           BigInt   @id @default(autoincrement())
+  issueId      BigInt   @map("issue_id")
+  assignmentId BigInt?  @map("assignment_id")
+  authorId     BigInt   @map("author_id")
+  status       IssueStatus?
+  comment      String   @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  issue        Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  assignment   IssueAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  author       User  @relation("IssueUpdateAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([issueId, createdAt])
+  @@index([assignmentId])
+  @@map("issue_updates")
+}
+
+// 25. notifications
+model Notification {
+  id        BigInt           @id @default(autoincrement())
+  userId    BigInt           @map("user_id")
+  type      NotificationType @default(INFO)
+  title     String           @db.VarChar(200)
+  message   String           @db.Text
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @db.Timestamptz(6) @map("read_at")
+  createdAt DateTime         @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// 26. activity_logs
+model ActivityLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    BigInt?  @map("actor_id")
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(100) @map("entity_type")
+  entityId   String?  @db.VarChar(100) @map("entity_id")
+  details    Json?
+  ipAddress  String?  @db.VarChar(45) @map("ip_address")
+  userAgent  String?  @db.VarChar(500) @map("user_agent")
+  createdAt  DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  actor      User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

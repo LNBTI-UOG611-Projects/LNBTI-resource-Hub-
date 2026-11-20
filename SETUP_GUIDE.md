@@ -159,6 +159,7 @@ The currently implemented dashboard includes:
 The Admin Dashboard is designed as the foundation for future administrative functionalities.
 
 Note: The dashboard does not yet include all planned management features. Additional administrative features will be implemented in future development stages.
+
 8. Running the Application
 After completing the database configuration and installing dependencies, run the application using the following commands.
 Generate Prisma Client
